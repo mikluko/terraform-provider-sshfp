@@ -20,15 +20,9 @@ resource "tls_private_key" "server" {
   algorithm = "ED25519"
 }
 
-# Use data source to get SSHFP components
-data "sshfp_fingerprint" "server_sha256" {
-  public_key       = tls_private_key.server.public_key_openssh
-  fingerprint_type = 2  # SHA-256 (optional, defaults to 2)
-}
-
-data "sshfp_fingerprint" "server_sha1" {
-  public_key       = tls_private_key.server.public_key_openssh
-  fingerprint_type = 1  # SHA-1
+# Use data source to get both SHA-1 and SHA-256 fingerprints
+data "sshfp_fingerprint" "server" {
+  public_key = tls_private_key.server.public_key_openssh
 }
 
 # Example with AWS Route53 (needs full record string)
@@ -38,10 +32,10 @@ resource "aws_route53_record" "sshfp" {
   type    = "SSHFP"
   ttl     = 300
   
-  # Use the pre-formatted record from data source
+  # Use both SHA-1 and SHA-256 records
   records = [
-    data.sshfp_fingerprint.server_sha256.record,
-    data.sshfp_fingerprint.server_sha1.record
+    data.sshfp_fingerprint.server.record_sha1,
+    data.sshfp_fingerprint.server.record_sha256
   ]
 }
 
@@ -53,9 +47,9 @@ resource "cloudflare_record" "sshfp_sha256" {
   ttl     = 300
   
   data {
-    algorithm   = data.sshfp_fingerprint.server_sha256.algorithm
-    type        = data.sshfp_fingerprint.server_sha256.fingerprint_type
-    fingerprint = data.sshfp_fingerprint.server_sha256.fingerprint
+    algorithm   = data.sshfp_fingerprint.server.algorithm
+    type        = 2  # SHA-256
+    fingerprint = data.sshfp_fingerprint.server.sha256
   }
 }
 
@@ -66,9 +60,9 @@ resource "cloudflare_record" "sshfp_sha1" {
   ttl     = 300
   
   data {
-    algorithm   = data.sshfp_fingerprint.server_sha1.algorithm
-    type        = data.sshfp_fingerprint.server_sha1.fingerprint_type
-    fingerprint = data.sshfp_fingerprint.server_sha1.fingerprint
+    algorithm   = data.sshfp_fingerprint.server.algorithm
+    type        = 1  # SHA-1
+    fingerprint = data.sshfp_fingerprint.server.sha1
   }
 }
 
@@ -80,7 +74,6 @@ resource "tls_private_key" "rsa_server" {
 
 data "sshfp_fingerprint" "rsa" {
   public_key = tls_private_key.rsa_server.public_key_openssh
-  # fingerprint_type defaults to 2 (SHA-256)
 }
 
 resource "tls_private_key" "ecdsa_server" {
@@ -95,10 +88,12 @@ data "sshfp_fingerprint" "ecdsa" {
 # Outputs to show the data source attributes
 output "ed25519_details" {
   value = {
-    algorithm      = data.sshfp_fingerprint.server_sha256.algorithm
-    algorithm_name = data.sshfp_fingerprint.server_sha256.algorithm_name
-    fingerprint    = data.sshfp_fingerprint.server_sha256.fingerprint
-    record         = data.sshfp_fingerprint.server_sha256.record
+    algorithm      = data.sshfp_fingerprint.server.algorithm
+    algorithm_name = data.sshfp_fingerprint.server.algorithm_name
+    sha1           = data.sshfp_fingerprint.server.sha1
+    sha256         = data.sshfp_fingerprint.server.sha256
+    record_sha1    = data.sshfp_fingerprint.server.record_sha1
+    record_sha256  = data.sshfp_fingerprint.server.record_sha256
   }
 }
 
@@ -106,8 +101,11 @@ output "rsa_algorithm_name" {
   value = data.sshfp_fingerprint.rsa.algorithm_name
 }
 
-output "ecdsa_record" {
-  value = data.sshfp_fingerprint.ecdsa.record
+output "ecdsa_records" {
+  value = {
+    sha1   = data.sshfp_fingerprint.ecdsa.record_sha1
+    sha256 = data.sshfp_fingerprint.ecdsa.record_sha256
+  }
 }
 
 variable "zone_id" {

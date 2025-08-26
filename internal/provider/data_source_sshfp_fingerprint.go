@@ -23,12 +23,13 @@ func NewSSHFPFingerprintDataSource() datasource.DataSource {
 type SSHFPFingerprintDataSource struct{}
 
 type SSHFPFingerprintDataSourceModel struct {
-	PublicKey       types.String `tfsdk:"public_key"`
-	FingerprintType types.Int64  `tfsdk:"fingerprint_type"`
-	Algorithm       types.Int64  `tfsdk:"algorithm"`
-	AlgorithmName   types.String `tfsdk:"algorithm_name"`
-	Fingerprint     types.String `tfsdk:"fingerprint"`
-	Record          types.String `tfsdk:"record"`
+	PublicKey     types.String `tfsdk:"public_key"`
+	Algorithm     types.Int64  `tfsdk:"algorithm"`
+	AlgorithmName types.String `tfsdk:"algorithm_name"`
+	SHA1          types.String `tfsdk:"sha1"`
+	SHA256        types.String `tfsdk:"sha256"`
+	RecordSHA1    types.String `tfsdk:"record_sha1"`
+	RecordSHA256  types.String `tfsdk:"record_sha256"`
 }
 
 func (d *SSHFPFingerprintDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -37,16 +38,12 @@ func (d *SSHFPFingerprintDataSource) Metadata(ctx context.Context, req datasourc
 
 func (d *SSHFPFingerprintDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Generate SSHFP DNS record components from an SSH public key",
+		MarkdownDescription: "Generate SSHFP DNS record components from an SSH public key. This data source automatically generates both SHA-1 and SHA-256 fingerprints.",
 
 		Attributes: map[string]schema.Attribute{
 			"public_key": schema.StringAttribute{
 				MarkdownDescription: "SSH public key in OpenSSH format",
 				Required:            true,
-			},
-			"fingerprint_type": schema.Int64Attribute{
-				MarkdownDescription: "Fingerprint type: 1 (SHA-1) or 2 (SHA-256). Defaults to 2.",
-				Optional:            true,
 			},
 			"algorithm": schema.Int64Attribute{
 				MarkdownDescription: "SSH algorithm number: 1 (RSA), 2 (DSA), 3 (ECDSA), 4 (Ed25519)",
@@ -56,12 +53,20 @@ func (d *SSHFPFingerprintDataSource) Schema(ctx context.Context, req datasource.
 				MarkdownDescription: "Human-readable algorithm name",
 				Computed:            true,
 			},
-			"fingerprint": schema.StringAttribute{
-				MarkdownDescription: "The fingerprint as a hex string",
+			"sha1": schema.StringAttribute{
+				MarkdownDescription: "The SHA-1 fingerprint as a hex string (40 characters)",
 				Computed:            true,
 			},
-			"record": schema.StringAttribute{
-				MarkdownDescription: "Complete SSHFP record value in format: algorithm type fingerprint",
+			"sha256": schema.StringAttribute{
+				MarkdownDescription: "The SHA-256 fingerprint as a hex string (64 characters)",
+				Computed:            true,
+			},
+			"record_sha1": schema.StringAttribute{
+				MarkdownDescription: "Complete SSHFP record value with SHA-1: algorithm 1 fingerprint",
+				Computed:            true,
+			},
+			"record_sha256": schema.StringAttribute{
+				MarkdownDescription: "Complete SSHFP record value with SHA-256: algorithm 2 fingerprint",
 				Computed:            true,
 			},
 		},
@@ -75,21 +80,6 @@ func (d *SSHFPFingerprintDataSource) Read(ctx context.Context, req datasource.Re
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Default fingerprint type to SHA-256 if not specified
-	fingerprintType := int64(2)
-	if !data.FingerprintType.IsNull() {
-		fingerprintType = data.FingerprintType.ValueInt64()
-	}
-
-	// Validate fingerprint type
-	if fingerprintType != 1 && fingerprintType != 2 {
-		resp.Diagnostics.AddError(
-			"Invalid Fingerprint Type",
-			fmt.Sprintf("Fingerprint type must be 1 (SHA-1) or 2 (SHA-256), got %d", fingerprintType),
-		)
 		return
 	}
 
@@ -119,27 +109,25 @@ func (d *SSHFPFingerprintDataSource) Read(ctx context.Context, req datasource.Re
 	// Get the raw key material
 	keyBytes := publicKey.Marshal()
 
-	// Calculate fingerprint based on type
-	var fingerprint string
-	if fingerprintType == 1 {
-		// SHA-1
-		hash := sha1.Sum(keyBytes)
-		fingerprint = hex.EncodeToString(hash[:])
-	} else {
-		// SHA-256
-		hash := sha256.Sum256(keyBytes)
-		fingerprint = hex.EncodeToString(hash[:])
-	}
+	// Calculate SHA-1 fingerprint
+	sha1Hash := sha1.Sum(keyBytes)
+	fingerprintSHA1 := hex.EncodeToString(sha1Hash[:])
 
-	// Generate the complete SSHFP record value
-	record := fmt.Sprintf("%d %d %s", algorithm, fingerprintType, fingerprint)
+	// Calculate SHA-256 fingerprint
+	sha256Hash := sha256.Sum256(keyBytes)
+	fingerprintSHA256 := hex.EncodeToString(sha256Hash[:])
+
+	// Generate the complete SSHFP record values
+	recordSHA1 := fmt.Sprintf("%d 1 %s", algorithm, fingerprintSHA1)
+	recordSHA256 := fmt.Sprintf("%d 2 %s", algorithm, fingerprintSHA256)
 
 	// Set computed attributes
-	data.FingerprintType = types.Int64Value(fingerprintType)
 	data.Algorithm = types.Int64Value(int64(algorithm))
 	data.AlgorithmName = types.StringValue(algorithmName)
-	data.Fingerprint = types.StringValue(fingerprint)
-	data.Record = types.StringValue(record)
+	data.SHA1 = types.StringValue(fingerprintSHA1)
+	data.SHA256 = types.StringValue(fingerprintSHA256)
+	data.RecordSHA1 = types.StringValue(recordSHA1)
+	data.RecordSHA256 = types.StringValue(recordSHA256)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

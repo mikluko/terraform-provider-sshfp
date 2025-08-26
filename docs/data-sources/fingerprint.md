@@ -3,12 +3,12 @@
 page_title: "sshfp_fingerprint Data Source - terraform-provider-sshfp"
 subcategory: ""
 description: |-
-  Generate SSHFP DNS record components from an SSH public key
+  Generate SSHFP DNS record components from an SSH public key. This data source automatically generates both SHA-1 and SHA-256 fingerprints.
 ---
 
 # sshfp_fingerprint (Data Source)
 
-Generate SSHFP DNS record components from an SSH public key
+Generate SSHFP DNS record components from an SSH public key. This data source automatically generates both SHA-1 and SHA-256 fingerprints.
 
 
 
@@ -19,13 +19,11 @@ Generate SSHFP DNS record components from an SSH public key
 
 - `public_key` (String) SSH public key in OpenSSH format
 
-### Optional
-
-- `fingerprint_type` (Number) Fingerprint type: 1 (SHA-1) or 2 (SHA-256). Defaults to 2.
-
 ### Read-Only
 
 - `algorithm` (Number) SSH algorithm number: 1 (RSA), 2 (DSA), 3 (ECDSA), 4 (Ed25519)
 - `algorithm_name` (String) Human-readable algorithm name
-- `fingerprint` (String) The fingerprint as a hex string
-- `record` (String) Complete SSHFP record value in format: algorithm type fingerprint
+- `record_sha1` (String) Complete SSHFP record value with SHA-1: algorithm 1 fingerprint
+- `record_sha256` (String) Complete SSHFP record value with SHA-256: algorithm 2 fingerprint
+- `sha1` (String) The SHA-1 fingerprint as a hex string (40 characters)
+- `sha256` (String) The SHA-256 fingerprint as a hex string (64 characters)
