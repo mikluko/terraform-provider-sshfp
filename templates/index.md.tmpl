@@ -1,0 +1,22 @@
+---
+page_title: "{{.ProviderShortName}} Provider"
+description: |-
+  The SSHFP provider generates SSH fingerprints for DNS SSHFP records.
+---
+
+# {{.ProviderShortName}} Provider
+
+The SSHFP provider generates SSH fingerprints for DNS SSHFP records. It provides both data sources and functions to generate SSHFP fingerprints from SSH public keys for use with any DNS provider.
+
+## Features
+
+- Generate SSHFP fingerprints from SSH public keys
+- Support for all SSH key algorithms (RSA, DSA, ECDSA, Ed25519)
+- SHA-1 and SHA-256 fingerprint generation
+- Works with any DNS provider (AWS Route53, Cloudflare, etc.)
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+{{ .SchemaMarkdown | trimspace }}
