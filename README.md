@@ -190,6 +190,35 @@ go test -v ./...
 go install .
 ```
 
+### Release Process
+
+1. **Update documentation**
+   ```bash
+   go tool tfplugindocs generate
+   ```
+
+2. **Commit and push changes**
+   ```bash
+   git add -A
+   git commit -m "Release vX.Y.Z"
+   git push origin main
+   ```
+
+3. **Create and push annotated tag**
+   ```bash
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+4. **Run GoReleaser**
+   ```bash
+   export GITHUB_TOKEN=...
+   export PGP_FINGERPRINT=...
+   goreleaser release --clean
+   ```
+
+The release will be automatically published to GitHub with all platform binaries, checksums, and signatures.
+
 ## License
 
-This provider is distributed under the Mozilla Public License Version 2.0.
+This provider is distributed under the MIT License.
